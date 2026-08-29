@@ -1,14 +1,17 @@
 # 78th
 
-XCODEGEN ?= xcodegen
-SCHEME   ?= 78th
-DEST     ?= generic/platform=iOS Simulator
+XCODEGEN     ?= xcodegen
+SCHEME       ?= 78th
+DEST         ?= generic/platform=iOS Simulator
+WATCH_SCHEME ?= 78th Watch
+WATCH_DEST   ?= generic/platform=watchOS Simulator
 
 .PHONY: help
 help:
 	@echo "make engine-test   Run the schedule engine's unit tests (no Xcode project needed)"
 	@echo "make project       Generate 78th.xcodeproj from project.yml"
 	@echo "make build         Generate the project and build the app and widget"
+	@echo "make watch-build   Generate the project and build the watch app and complications"
 	@echo "make open          Generate the project and open it in Xcode"
 	@echo "make lint-sql      Check the Supabase migration parses"
 	@echo "make clean         Remove generated build artifacts"
@@ -25,6 +28,13 @@ project:
 .PHONY: build
 build: project
 	xcodebuild -project 78th.xcodeproj -scheme "$(SCHEME)" -destination "$(DEST)" \
+		CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+
+# The phone scheme builds the watch app too, since the app embeds it. This
+# builds the watch side alone, against a watchOS destination.
+.PHONY: watch-build
+watch-build: project
+	xcodebuild -project 78th.xcodeproj -scheme "$(WATCH_SCHEME)" -destination "$(WATCH_DEST)" \
 		CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
 
 .PHONY: open

@@ -19,6 +19,8 @@ public enum AppIdentifiers {
     public enum WidgetKind {
         public static let schedule = "SeventyEighthScheduleWidget"
         public static let lockScreen = "SeventyEighthLockScreenWidget"
+        /// The watch face complication.
+        public static let watchSchedule = "SeventyEighthWatchScheduleComplication"
     }
 
     /// Shared defaults, for the handful of flags the widget needs to read.

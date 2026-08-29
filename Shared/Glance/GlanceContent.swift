@@ -2,10 +2,13 @@ import SwiftUI
 import ScheduleEngine
 
 /// What every glance surface needs, reduced to strings and a colour once, so the
-/// four widget sizes cannot drift apart.
-struct GlanceContent {
+/// small surfaces cannot drift apart.
+///
+/// There are six of them now — two home screen sizes, three lock screen
+/// accessories, and the watch face — and every one of them renders from this.
+public struct GlanceContent {
 
-    enum Mode {
+    public enum Mode {
         /// Counting down the end of the current class.
         case inClass
         /// Counting down to the start of the next class.
@@ -14,22 +17,22 @@ struct GlanceContent {
         case idle
     }
 
-    var mode: Mode
+    public var mode: Mode
     /// "AP Physics C", "Lunch", "Sunday".
-    var title: String
+    public var title: String
     /// "402", or nil.
-    var room: String?
+    public var room: String?
     /// "Period 2", or nil.
-    var slotLabel: String?
+    public var slotLabel: String?
     /// What the countdown counts to. Nil when nothing is running.
-    var target: Date?
+    public var target: Date?
     /// Where the countdown started, for the ring on the circular accessory.
-    var intervalStart: Date?
-    var color: Color
+    public var intervalStart: Date?
+    public var color: Color
     /// Short status word above the countdown: "left", "until", "".
-    var caption: String
+    public var caption: String
 
-    init(snapshot: ScheduleSnapshot) {
+    public init(snapshot: ScheduleSnapshot) {
         switch snapshot.status {
         case .inPeriod(let current, _):
             mode = .inClass
@@ -81,13 +84,13 @@ struct GlanceContent {
     }
 
     /// The remaining seconds at a given entry date.
-    func secondsRemaining(at date: Date) -> Int? {
+    public func secondsRemaining(at date: Date) -> Int? {
         guard let target else { return nil }
         return max(0, Int(target.timeIntervalSince(date).rounded(.up)))
     }
 
     /// 0 to 1 through the current interval, for the circular ring.
-    func progress(at date: Date) -> Double {
+    public func progress(at date: Date) -> Double {
         guard let target, let intervalStart, target > intervalStart else { return 0 }
         let total = target.timeIntervalSince(intervalStart)
         let elapsed = date.timeIntervalSince(intervalStart)

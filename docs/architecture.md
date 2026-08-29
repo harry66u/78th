@@ -19,19 +19,23 @@ never disagree: there is one implementation, and it is a pure function of time.
                         │  (Foundation only, pure) │
                         └────────────┬─────────────┘
                                      │
-              ┌──────────────────────┼──────────────────────┐
-              │                      │                      │
-      ┌───────▼───────┐     ┌────────▼────────┐    ┌────────▼────────┐
-      │   The app     │     │  Widget ext.    │    │  watchOS (v2)   │
-      │ ScheduleStore │     │ ScheduleProvider│    │                 │
-      └───────┬───────┘     └────────┬────────┘    └─────────────────┘
-              │                      │
-              └──────────┬───────────┘
-                         │  reads and writes
-             ┌───────────▼────────────┐
-             │  SwiftData, App Group  │
-             │  group.com.seventy...  │
-             └────────────────────────┘
+        ┌────────────────────────────┼───────────────────────────────┐
+        │                            │                               │
+┌───────▼───────┐          ┌─────────▼───────┐           ┌───────────▼──────────┐
+│   The app     │          │  Widget ext.    │           │  Watch app + face    │
+│ ScheduleStore │          │ ScheduleProvider│           │ WatchScheduleStore   │
+└───────┬───────┘          └────────┬────────┘           └───────────┬──────────┘
+        │                           │                                │
+        └────────────┬──────────────┘                                │
+                     │  reads and writes                             │ reads
+         ┌───────────▼────────────┐                    ┌─────────────▼───────────┐
+         │  SwiftData, App Group  │                    │  ScheduleMirror, JSON   │
+         │  group.com.seventy...  │                    │  App Group, on watch    │
+         └───────────┬────────────┘                    └─────────────▲───────────┘
+                     │                                               │
+                     └───────────────────────────────────────────────┘
+                          WatchConnectivity application context
+                        (phone writes, watch mirrors, never back)
 ```
 
 ## Layers
@@ -41,10 +45,21 @@ never disagree: there is one implementation, and it is a pure function of time.
 import contract, the rotation-file format and merge, and formatting. All of it is
 unit tested, and none of it can be broken by a UI change.
 
-**`Shared/`** — compiled into both the app and the widget. The SwiftData
+**`Shared/`** — compiled into the app and the extensions. The SwiftData
 `@Model` classes, the App Group container, the ping vocabulary, the theme, the
 `SendPingIntent`, and the Supabase client. Nothing here makes a scheduling
 decision; it converts and stores.
+
+Two subfolders are cross-platform on purpose and are the only part of `Shared/`
+the watch targets compile:
+
+- **`Shared/Glance/`** — `GlanceContent`, which reduces a snapshot to the
+  handful of strings and one colour a small surface can hold; `ScheduleEntry`
+  and `GlanceTimeline`, the WidgetKit timeline both extensions build; and the
+  accessory renderers. The iPhone lock screen and the watch face ask for the same
+  families and now get the same code, so they cannot drift.
+- **`Shared/Sync/`** — `ScheduleSyncPayload`, the value that crosses the pairing,
+  and `ScheduleMirror`, the watch's on-disk copy of it.
 
 **`App/SeventyEighth/`** — two observable stores own all mutation.
 `ScheduleStore` is the only thing that writes the schedule and the only thing
@@ -56,6 +71,10 @@ identity, friends, and the live ping list.
 the engine for entry dates, and precomputes an entry for each. It never makes a
 network call and never wakes the app.
 
+**`Watch/`** — the watch app and its complication extension. The app is
+read-only, which is what makes it small: no editing on the wrist means nothing to
+save, nothing to validate, and no way for two devices to disagree about who won.
+
 ## Why the widget timeline looks the way it does
 
 Period boundaries alone are not enough. Between two bells the countdown would sit
@@ -64,6 +83,50 @@ frozen on whatever minute the last entry was built at. So
 to count down to, and falls back to bells-only when there is not — a Sunday gets
 a handful of entries, not ninety. Timeline entries are cheap; widget *reloads*
 are the budgeted resource, and this design needs almost none.
+
+## How the schedule reaches the watch
+
+An App Group is a per-device container, not an iCloud one, so the watch cannot
+read the phone's SwiftData store. The schedule has to cross the pairing as a
+value — and it already is one. `ScheduleConfiguration` is `Codable` and is the
+engine's entire input, so the transfer format is that value plus the two flags
+the wrist needs to be honest: whether the bell times have been confirmed, and
+which rotation version this is.
+
+The transport is `WCSession`'s **application context**, and the choice matters:
+
+- It is a single latest-state slot rather than a queue, so a student who edits
+  five periods in a row does not send five transfers the watch has to replay.
+- It is delivered in the background, waking the watch app to write its mirror
+  without anybody raising a wrist.
+- It is capped at roughly a quarter of a megabyte, which is why the payload is
+  trimmed to the dated overrides a given moment can still reach. That window is
+  `ScheduleConfiguration.trimmingCalendarDays(around:)`, and it lives in the
+  engine package because *how far ahead an answer can depend on the rotation* is
+  a fact about the engine. It is tested there.
+
+What is deliberately **not** sent is a transfer per tick. The complication's
+timeline is precomputed a day ahead from the schedule the watch already holds, so
+minute-to-minute freshness costs no radio at all. A transfer is only needed when
+the schedule itself changes, which is a handful of times a year.
+
+Everything the watch receives goes to disk first, and both the watch app and the
+complication read it back from there. One path in means a value on the screen is
+always a value the face would show too. The mirror is a cache and is treated like
+one: losing it costs a sync, not a schedule.
+
+`ScheduleStore.reload()` is the single place the phone feeds it, for the same
+reason it is the single place that reloads widget timelines. Every write path in
+that class ends in `reload()`, so a schedule edit that reaches the app but not
+the wrist is not a state the store can get into.
+
+### What is not on the watch
+
+Pings are phone-only. Sending one from the wrist would be easy; the half that
+makes the feature worth anything — seeing where your friends are — needs the
+identity, friend list, and realtime subscription that live in `SocialStore`, and
+putting that on a watch is its own piece of work rather than a corner of this
+one. The watch does the schedule, which is the half that has to be right.
 
 ## What the server knows
 

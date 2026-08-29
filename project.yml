@@ -10,6 +10,7 @@ options:
   bundleIdPrefix: com.seventyeighth
   deploymentTarget:
     iOS: "17.0"
+    watchOS: "10.0"
   createIntermediateGroups: true
   groupSortPosition: top
   generateEmptyDirectories: false
@@ -53,6 +54,12 @@ targets:
       - package: Supabase
         product: Supabase
       - target: SeventyEighthWidget
+      # A companion watch app ships inside the phone app's bundle, in Watch/.
+      - target: SeventyEighthWatch
+        embed: true
+        copy:
+          destination: productsDirectory
+          subpath: "$(CONTENTS_FOLDER_PATH)/Watch"
     settings:
       base:
         PRODUCT_NAME: 78th
@@ -117,6 +124,90 @@ targets:
         com.apple.security.application-groups:
           - group.com.seventyeighth.app
 
+  # ---------------------------------------------------------------------------
+  # The watch app
+  #
+  # It takes only the cross-platform slice of Shared/: the identifiers, the
+  # theme, the glance reduction, and the sync types. The SwiftData models, the
+  # Supabase client, and the ping intent are all phone-side, and none of them
+  # would mean anything on a wrist that cannot edit a schedule.
+  # ---------------------------------------------------------------------------
+  SeventyEighthWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: Watch/SeventyEighthWatch
+      - path: Shared/AppIdentifiers.swift
+      - path: Shared/Theme.swift
+      - path: Shared/PreviewSchedule.swift
+      - path: Shared/Glance
+      - path: Shared/Sync
+    dependencies:
+      - package: ScheduleEngine
+        product: ScheduleEngine
+      - target: SeventyEighthWatchWidget
+    settings:
+      base:
+        PRODUCT_NAME: 78th
+        # A companion watch app's bundle id must be the phone app's with
+        # ".watchkitapp" appended. This is checked at install time, not build
+        # time, so getting it wrong fails late and confusingly.
+        PRODUCT_BUNDLE_IDENTIFIER: com.seventyeighth.app.watchkitapp
+        CODE_SIGN_ENTITLEMENTS: Watch/SeventyEighthWatch/SeventyEighthWatch.entitlements
+    info:
+      path: Watch/SeventyEighthWatch/Info.plist
+      properties:
+        CFBundleDisplayName: 78th
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        # Single-target watch app, the only shape since watchOS 7.
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: com.seventyeighth.app
+    entitlements:
+      path: Watch/SeventyEighthWatch/SeventyEighthWatch.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.seventyeighth.app
+
+  # ---------------------------------------------------------------------------
+  # The watch face complications
+  #
+  # The reason the watch app is worth building at all: the schedule on the face
+  # itself, with nothing opened and nothing in range.
+  # ---------------------------------------------------------------------------
+  SeventyEighthWatchWidget:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: Watch/SeventyEighthWatchWidget
+      - path: Shared/AppIdentifiers.swift
+      - path: Shared/Theme.swift
+      - path: Shared/PreviewSchedule.swift
+      - path: Shared/Glance
+      - path: Shared/Sync
+    dependencies:
+      - package: ScheduleEngine
+        product: ScheduleEngine
+    settings:
+      base:
+        PRODUCT_NAME: 78th Complications
+        PRODUCT_BUNDLE_IDENTIFIER: com.seventyeighth.app.watchkitapp.widget
+        CODE_SIGN_ENTITLEMENTS: Watch/SeventyEighthWatchWidget/SeventyEighthWatchWidget.entitlements
+    info:
+      path: Watch/SeventyEighthWatchWidget/Info.plist
+      properties:
+        CFBundleDisplayName: 78th
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Watch/SeventyEighthWatchWidget/SeventyEighthWatchWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.seventyeighth.app
+
 schemes:
   78th:
     build:
@@ -129,3 +220,14 @@ schemes:
       config: Debug
       targets:
         - package: ScheduleEngine/ScheduleEngineTests
+
+  # The phone scheme builds the watch app too, because the phone app embeds it.
+  # This one exists so CI can compile the watch side against a watchOS
+  # destination on its own and say plainly which side broke.
+  78th Watch:
+    build:
+      targets:
+        SeventyEighthWatch: all
+        SeventyEighthWatchWidget: all
+    run:
+      config: Debug
