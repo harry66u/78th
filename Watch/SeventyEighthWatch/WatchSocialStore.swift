@@ -25,6 +25,10 @@ final class WatchSocialStore {
         /// This build has no backend at all, which is a supported build: the
         /// schedule half of the app needs no server.
         case unconfigured
+        /// Before the first `restore()`. Distinct from `signedOut` so that a
+        /// student who *is* signed in does not watch the sign-in screen flash
+        /// past every time they raise their wrist.
+        case unknown
         case signedOut
         /// Signed in, but the account has no profile yet. Making one needs a
         /// keyboard, so the watch sends the student to their phone.
@@ -32,7 +36,7 @@ final class WatchSocialStore {
         case ready(Profile)
     }
 
-    private(set) var state: State = .signedOut
+    private(set) var state: State = .unknown
     private(set) var groups: [LocationGroup] = []
     private(set) var friendCount = 0
     /// Where this device last said the student was, read back from the outbox
@@ -61,13 +65,13 @@ final class WatchSocialStore {
             self.backend = nil
         }
 
-        state = self.backend == nil ? .unconfigured : .signedOut
+        state = self.backend == nil ? .unconfigured : .unknown
         myPing = PingOutbox.shared.lastConfirmedEntry().flatMap { $0.isLive() ? $0 : nil }
         invisibleUntil = ScheduleMirror.load()?.invisibleUntil
 
         // Both stores watch the mirror independently rather than one calling the
         // other, so neither has to know the other exists.
-        NotificationCenter.default.addObserver(
+        _ = NotificationCenter.default.addObserver(
             forName: .scheduleMirrorDidChange,
             object: nil,
             queue: .main
@@ -85,7 +89,7 @@ final class WatchSocialStore {
     var isSignedIn: Bool {
         switch state {
         case .ready, .needsProfileOnPhone: return true
-        case .signedOut, .unconfigured: return false
+        case .signedOut, .unconfigured, .unknown: return false
         }
     }
 

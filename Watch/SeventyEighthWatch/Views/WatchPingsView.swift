@@ -19,6 +19,8 @@ struct WatchPingsView: View {
                     title: "No backend",
                     detail: "This build has no server configured, so pings are off."
                 )
+            case .unknown:
+                ProgressView()
             case .signedOut:
                 WatchSignInView()
             case .needsProfileOnPhone:
