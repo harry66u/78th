@@ -33,6 +33,10 @@ struct SeventyEighthApp: App {
 
         let dispatcherBackend = backend
         Task { await PingDispatcher.shared.use(dispatcherBackend) }
+
+        // The store's first reload has already handed the service a payload;
+        // activating now means it goes out as soon as the session is up.
+        WatchSyncService.shared.activate()
     }
 
     var body: some Scene {

@@ -1,7 +1,8 @@
 # 78th
 
-A class schedule app for Ramaz, built around a home screen widget, plus a
-lightweight location ping so friends can find each other during frees.
+A class schedule app for Ramaz, built around a home screen widget and an Apple
+Watch app, plus a lightweight location ping so friends can find each other
+during frees.
 
 The whole product is one sentence: **you should know what class you have next,
 and where, without unlocking your phone.** Everything else is in service of that.
@@ -9,6 +10,8 @@ and where, without unlocking your phone.** Everything else is in service of that
 - Enter your schedule once, in about two minutes.
 - The widget shows minutes remaining, the course, and the room, with the app
   closed and no network.
+- The same countdown lives on the watch face, and the watch app works with the
+  phone in a locker.
 - On a free, tap a spot and your friends see where you are. No GPS, no
   background tracking, no history.
 
@@ -22,12 +25,13 @@ direct messages, and no free text anywhere between users.
 ```
 Packages/ScheduleEngine/   The pure schedule engine, plus its tests. No network,
                            no persistence, no UI. Everything else calls this.
-Shared/                    Compiled into both the app and the widget: SwiftData
+Shared/                    Compiled into the app and the extensions: SwiftData
                            models, the App Group container, the ping vocabulary,
-                           the theme.
+                           the theme, the glance surfaces, the watch sync types.
 App/SeventyEighth/         The app: stores, screens, services.
 Widget/                    The WidgetKit extension: four surfaces plus the
                            one-tap ping widget.
+Watch/                     The watch app and its face complications.
 Supabase/                  Schema with row level security, and two Edge
                            Functions.
 Tools/                     Signing the shared rotation file.
@@ -42,6 +46,10 @@ make engine-test
 
 # The app needs Xcode 16 and XcodeGen (brew install xcodegen).
 make open
+
+# Build a side on its own, the way CI does.
+make build
+make watch-build
 ```
 
 `78th.xcodeproj` is generated from `project.yml` rather than committed, so adding
@@ -66,12 +74,16 @@ The schedule half of the app works with no server at all. To turn on pings:
 
 The schedule engine is a pure function: given a configuration and an instant, it
 returns the current period, the next one, and the seconds remaining. It has no
-network dependency and no persistence dependency, so the app, the widget, and any
-future watch app all get the same answer from the same code. SwiftData is the
-device's source of truth and lives in an App Group, which is how the widget reads
-a schedule without waking the app. Supabase holds only the social half: profiles,
+network dependency and no persistence dependency, so the app, the widget, the
+watch app, and the complications all get the same answer from the same code.
+SwiftData is the device's source of truth and lives in an App Group, which is how
+the widget reads a schedule without waking the app. The watch cannot read that
+container — an App Group is per-device — so the phone sends the configuration
+across the pairing and the watch keeps its own copy on disk; from there down the
+two run identical code. Supabase holds only the social half: profiles,
 friendships, and one live ping per person. **The class schedule never leaves the
-device** — there is no table for it, because nothing on the server needs it.
+device** — there is no table for it, because nothing on the server needs it, and
+the watch copy travels device to device rather than through anyone's server.
 
 More detail in [`docs/architecture.md`](docs/architecture.md).
 
@@ -89,6 +101,7 @@ The build order from the spec, and where this repository stands:
 | M6 | Pings with expiry and realtime | Built. |
 | M7 | Calendar overrides and the shared rotation file | Built, signed with Ed25519. |
 | M8 | TestFlight with about twenty students | Not started. Needs a paid Apple Developer account. |
+| M9 | Apple Watch app and face complications | Built. Two-page watch app, four complication families, schedule synced from the phone over WatchConnectivity. |
 
 The spec says to ship M1 through M3 before writing a line of social code, and
 that ordering still holds for release: a schedule app that is always right is
@@ -110,7 +123,11 @@ See [`docs/open-questions.md`](docs/open-questions.md).
 
 ## Verification status
 
-`swift test` and `xcodebuild` both run in CI on macOS, on every push. The engine
-tests are the meaningful gate: they encode M1's acceptance criterion, which is
-that the engine returns the correct current and next period for any date and
-time across every day type.
+`swift test` and `xcodebuild` both run in CI on macOS, on every push, and the
+watch app is built against a watchOS destination as its own job so a break on one
+platform names itself. The engine tests are the meaningful gate: they encode M1's
+acceptance criterion, which is that the engine returns the correct current and
+next period for any date and time across every day type. Anything a new surface
+adds that is worth testing goes into the engine package for that reason — the
+window that decides what crosses to the watch is tested there, not next to the
+transport.

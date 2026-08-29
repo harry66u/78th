@@ -7,9 +7,11 @@ import ScheduleEngine
 /// The app's single owner of the schedule.
 ///
 /// Views never touch SwiftData directly. They read `engine` and call the
-/// mutation methods here, which means there is exactly one place that saves and
-/// exactly one place that tells the widget to reload. A schedule edit that does
-/// not reach the home screen is the failure mode students notice first.
+/// mutation methods here, which means there is exactly one place that saves,
+/// exactly one place that tells the widget to reload, and exactly one place that
+/// sends the schedule to the watch. A schedule edit that does not reach the home
+/// screen is the failure mode students notice first; one that does not reach the
+/// wrist is the second.
 @MainActor
 @Observable
 public final class ScheduleStore {
@@ -55,9 +57,26 @@ public final class ScheduleStore {
         do {
             engine = ScheduleEngine(configuration: try ScheduleConfigurationLoader.load(from: context))
             revision += 1
+            syncToWatch()
         } catch {
             lastError = "Could not read your schedule: \(error.localizedDescription)"
         }
+    }
+
+    /// The watch holds a read-only copy, and this is the only place that feeds
+    /// it — the same rule as the widget reload, for the same reason. Every write
+    /// path in this class ends in `reload()`, so a schedule edit that reaches the
+    /// app but not the wrist is not a state this store can get into.
+    ///
+    /// Cheap when nothing changed: the service drops a payload identical to the
+    /// last one it sent.
+    private func syncToWatch() {
+        let settings = try? ScheduleConfigurationLoader.settings(in: context)
+        WatchSyncService.shared.send(ScheduleSyncPayload(
+            configuration: engine.configuration,
+            bellTimesConfirmed: settings?.bellTimesConfirmed ?? false,
+            rotationVersion: settings?.rotationVersion ?? 0
+        ))
     }
 
     private func commit() {
