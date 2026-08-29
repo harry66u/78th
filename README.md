@@ -12,8 +12,8 @@ and where, without unlocking your phone.** Everything else is in service of that
   closed and no network.
 - The same countdown lives on the watch face, and the watch app works with the
   phone in a locker.
-- On a free, tap a spot and your friends see where you are. No GPS, no
-  background tracking, no history.
+- On a free, tap a spot and your friends see where you are — from the phone or
+  from the watch. No GPS, no background tracking, no history.
 
 It is a school utility, not a way around a phone policy. There is no chat, no
 direct messages, and no free text anywhere between users.
@@ -69,6 +69,17 @@ The schedule half of the app works with no server at all. To turn on pings:
 3. Copy `Config/Example.xcconfig` to `Config/Local.xcconfig` and fill in the
    project URL and the anon key. Both are publishable; row level security is
    what decides who can read what. A service-role key never belongs in the app.
+4. **Two steps the watch needs, both outside this repository.** The watch signs
+   in for itself, so its bundle id has to be recognised on both sides:
+   - In Supabase, under Authentication → Providers → Apple, add
+     `com.seventyeighth.app.watchkitapp` to the **Client IDs** list alongside the
+     phone's. Apple puts the bundle id in the identity token's `aud` claim, and
+     Supabase rejects a token whose audience it does not know.
+   - In the Apple Developer portal, group the watch App ID with the phone's App
+     ID for Sign in with Apple. Without the grouping Apple issues a *different*
+     user identifier for the same person on the watch, so the watch quietly signs
+     into a second account with no friends in it — which looks like a bug and is
+     a configuration error.
 
 ## Architecture in one paragraph
 
@@ -84,6 +95,9 @@ two run identical code. Supabase holds only the social half: profiles,
 friendships, and one live ping per person. **The class schedule never leaves the
 device** — there is no table for it, because nothing on the server needs it, and
 the watch copy travels device to device rather than through anyone's server.
+Pings are the one thing that does *not* mirror: the watch signs in separately and
+talks to Supabase itself, because a ping is wanted exactly when the phone is in a
+locker.
 
 More detail in [`docs/architecture.md`](docs/architecture.md).
 
@@ -101,7 +115,8 @@ The build order from the spec, and where this repository stands:
 | M6 | Pings with expiry and realtime | Built. |
 | M7 | Calendar overrides and the shared rotation file | Built, signed with Ed25519. |
 | M8 | TestFlight with about twenty students | Not started. Needs a paid Apple Developer account. |
-| M9 | Apple Watch app and face complications | Built. Two-page watch app, four complication families, schedule synced from the phone over WatchConnectivity. |
+| M9 | Apple Watch app and face complications | Built. Watch app, four complication families, schedule synced from the phone over WatchConnectivity. |
+| M10 | Pings on the watch | Built. The watch holds its own Supabase session and sends and reads pings without the phone. Profile and friend management stay on the phone. |
 
 The spec says to ship M1 through M3 before writing a line of social code, and
 that ordering still holds for release: a schedule app that is always right is
@@ -118,6 +133,9 @@ the code where they live:
 2. **The ping locations have not been checked against the building.**
 3. **The day rotation is a Monday-to-Friday guess.** The real rotation belongs
    in the shared rotation file.
+4. **The watch's Sign in with Apple grouping has not been exercised.** It needs
+   the two configuration steps above, and neither can be verified without a paid
+   developer account. Until then, assume the watch signs into its own account.
 
 See [`docs/open-questions.md`](docs/open-questions.md).
 

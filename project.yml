@@ -142,9 +142,17 @@ targets:
       - path: Shared/PreviewSchedule.swift
       - path: Shared/Glance
       - path: Shared/Sync
+      # The social half, minus the App Intent: that one reads the phone's
+      # SwiftData store to compute a ping's expiry, and on the watch the
+      # schedule comes from the mirror instead.
+      - path: Shared/Social
+        excludes:
+          - SendPingIntent.swift
     dependencies:
       - package: ScheduleEngine
         product: ScheduleEngine
+      - package: Supabase
+        product: Supabase
       - target: SeventyEighthWatchWidget
     settings:
       base:
@@ -164,11 +172,17 @@ targets:
         # Single-target watch app, the only shape since watchOS 7.
         WKApplication: true
         WKCompanionAppBundleIdentifier: com.seventyeighth.app
+        SupabaseURL: $(SUPABASE_URL)
+        SupabaseAnonKey: $(SUPABASE_ANON_KEY)
     entitlements:
       path: Watch/SeventyEighthWatch/SeventyEighthWatch.entitlements
       properties:
         com.apple.security.application-groups:
           - group.com.seventyeighth.app
+        # The watch signs in for itself rather than borrowing the phone's
+        # session. Supabase's Apple provider must list this bundle id as a
+        # client id, or the identity token's audience will not validate.
+        com.apple.developer.applesignin: [Default]
 
   # ---------------------------------------------------------------------------
   # The watch face complications

@@ -30,6 +30,8 @@ public final class PingOutbox: @unchecked Sendable {
             self.createdAt = createdAt
             self.expiresAt = expiresAt
         }
+
+        public func isLive(at date: Date = Date()) -> Bool { expiresAt > date }
     }
 
     // MARK: Pending
@@ -63,8 +65,16 @@ public final class PingOutbox: @unchecked Sendable {
     }
 
     public func lastConfirmed() -> (location: PingLocation, sentAt: Date)? {
-        guard let entry: Entry = read(forKey: confirmedKey) else { return nil }
+        guard let entry = lastConfirmedEntry() else { return nil }
         return (entry.location, entry.createdAt)
+    }
+
+    /// The whole entry, for callers that need the expiry and not just the spot.
+    /// The watch shows "you are at the Library" from this across suspensions,
+    /// and inventing an expiry rather than reading the real one would make it
+    /// linger after the period it belonged to.
+    public func lastConfirmedEntry() -> Entry? {
+        read(forKey: confirmedKey)
     }
 
     public func clearConfirmed() {

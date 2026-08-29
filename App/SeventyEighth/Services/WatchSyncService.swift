@@ -84,6 +84,25 @@ final class WatchSyncService: NSObject, @unchecked Sendable {
         }
     }
 
+    /// Pushes the invisibility switch on its own, without waiting for a
+    /// schedule edit to carry it.
+    ///
+    /// This is the one piece of watch state that is urgent: the watch sends
+    /// pings to the server itself, so until it hears about the switch it would
+    /// happily keep telling friends where the student is. Going invisible on the
+    /// phone has to reach the wrist now, not at the next reload.
+    func setInvisible(until: Date?) {
+        lock.lock()
+        if var payload = latest {
+            payload.invisibleUntil = until
+            payload.generatedAt = Date()
+            latest = payload
+        }
+        lastSentFingerprint = nil
+        lock.unlock()
+        resend()
+    }
+
     /// `generatedAt` moves on every build, so it is left out: two payloads that
     /// would draw the same watch face are the same payload.
     private static func fingerprint(of payload: ScheduleSyncPayload) -> Int {
@@ -91,6 +110,7 @@ final class WatchSyncService: NSObject, @unchecked Sendable {
         hasher.combine(payload.configuration)
         hasher.combine(payload.bellTimesConfirmed)
         hasher.combine(payload.rotationVersion)
+        hasher.combine(payload.invisibleUntil)
         return hasher.finalize()
     }
 

@@ -24,6 +24,13 @@ public struct ScheduleSyncPayload: Codable, Hashable, Sendable {
     /// and the watch says so too rather than quietly being wrong.
     public var bellTimesConfirmed: Bool
     public var rotationVersion: Int
+    /// "Invisible for the day", nil when it is off or has expired.
+    ///
+    /// Not schedule data, and it is here anyway. The watch talks to the ping
+    /// backend on its own, so a privacy switch the wrist has not heard about is
+    /// a switch that lies on one of the two devices. The phone owns it; this is
+    /// how the watch is told.
+    public var invisibleUntil: Date?
     /// When the phone built this. Shown on the watch as "synced 4 min ago".
     public var generatedAt: Date
 
@@ -31,6 +38,7 @@ public struct ScheduleSyncPayload: Codable, Hashable, Sendable {
         configuration: ScheduleConfiguration,
         bellTimesConfirmed: Bool = false,
         rotationVersion: Int = 0,
+        invisibleUntil: Date? = nil,
         generatedAt: Date = Date(),
         format: Int = ScheduleSyncPayload.currentFormat
     ) {
@@ -38,7 +46,14 @@ public struct ScheduleSyncPayload: Codable, Hashable, Sendable {
         self.configuration = configuration
         self.bellTimesConfirmed = bellTimesConfirmed
         self.rotationVersion = rotationVersion
+        self.invisibleUntil = invisibleUntil
         self.generatedAt = generatedAt
+    }
+
+    /// True while the student has asked not to be visible to friends.
+    public func isInvisible(at date: Date = Date()) -> Bool {
+        guard let invisibleUntil else { return false }
+        return invisibleUntil > date
     }
 
     public var engine: ScheduleEngine {
