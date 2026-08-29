@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Milestone 1's acceptance criterion, run on every push. The schedule engine
+  # has no dependencies, so this job needs neither the Xcode project nor a
+  # signing identity.
+  engine-tests:
+    name: Schedule engine tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+      - name: Run tests
+        working-directory: Packages/ScheduleEngine
+        run: swift test --enable-code-coverage
+
+  # Catches the failure that hurts most: a schedule change that compiles in the
+  # app but not in the widget extension, or the reverse.
+  build:
+    name: Build app and widget
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: make project
+      - name: Build
+        run: |
+          xcodebuild \
+            -project 78th.xcodeproj \
+            -scheme 78th \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+  edge-functions:
+    name: Edge function type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Check
+        run: deno check Supabase/functions/*/index.ts

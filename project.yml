@@ -1,0 +1,131 @@
+# XcodeGen spec. `make project` writes 78th.xcodeproj from this file.
+#
+# The project file is generated rather than committed so that adding a source
+# file is a git-clean operation and two people adding files on the same day do
+# not produce a merge conflict in a 3,000 line pbxproj.
+
+name: 78th
+
+options:
+  bundleIdPrefix: com.seventyeighth
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  generateEmptyDirectories: false
+
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    # Backend configuration lives in xcconfig, not in source. A build with these
+    # empty is a valid build: the schedule half of the app needs no server.
+    SUPABASE_URL: ""
+    SUPABASE_ANON_KEY: ""
+    ROTATION_PUBLIC_KEY: ""
+
+packages:
+  ScheduleEngine:
+    path: Packages/ScheduleEngine
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: 2.20.0
+
+targets:
+
+  # ---------------------------------------------------------------------------
+  # The app
+  # ---------------------------------------------------------------------------
+  SeventyEighth:
+    type: application
+    platform: iOS
+    sources:
+      - path: App/SeventyEighth
+      - path: Shared
+    dependencies:
+      - package: ScheduleEngine
+        product: ScheduleEngine
+      - package: Supabase
+        product: Supabase
+      - target: SeventyEighthWidget
+    settings:
+      base:
+        PRODUCT_NAME: 78th
+        PRODUCT_BUNDLE_IDENTIFIER: com.seventyeighth.app
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        CODE_SIGN_ENTITLEMENTS: App/SeventyEighth/Resources/SeventyEighth.entitlements
+    info:
+      path: App/SeventyEighth/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: 78th
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        UIBackgroundModes: [remote-notification]
+        NSPhotoLibraryUsageDescription: >-
+          78th reads a photo of your schedule so you do not have to type it in.
+          The photo is used once and never stored.
+        SupabaseURL: $(SUPABASE_URL)
+        SupabaseAnonKey: $(SUPABASE_ANON_KEY)
+        RotationPublicKey: $(ROTATION_PUBLIC_KEY)
+    entitlements:
+      path: App/SeventyEighth/Resources/SeventyEighth.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.seventyeighth.app
+        com.apple.developer.applesignin: [Default]
+        aps-environment: development
+
+  # ---------------------------------------------------------------------------
+  # The widget extension: the reason this app is native
+  # ---------------------------------------------------------------------------
+  SeventyEighthWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widget/SeventyEighthWidget
+      - path: Shared
+    dependencies:
+      - package: ScheduleEngine
+        product: ScheduleEngine
+      - package: Supabase
+        product: Supabase
+    settings:
+      base:
+        PRODUCT_NAME: 78th Widget
+        PRODUCT_BUNDLE_IDENTIFIER: com.seventyeighth.app.widget
+        CODE_SIGN_ENTITLEMENTS: Widget/SeventyEighthWidget/SeventyEighthWidget.entitlements
+    info:
+      path: Widget/SeventyEighthWidget/Info.plist
+      properties:
+        CFBundleDisplayName: 78th
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        SupabaseURL: $(SUPABASE_URL)
+        SupabaseAnonKey: $(SUPABASE_ANON_KEY)
+    entitlements:
+      path: Widget/SeventyEighthWidget/SeventyEighthWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.seventyeighth.app
+
+schemes:
+  78th:
+    build:
+      targets:
+        SeventyEighth: all
+        SeventyEighthWidget: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - package: ScheduleEngine/ScheduleEngineTests
