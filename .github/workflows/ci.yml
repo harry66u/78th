@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Milestone 1's acceptance criterion, run on every push. The schedule engine
+  # has no dependencies, so this job needs neither the Xcode project nor a
+  # signing identity.
+  engine-tests:
+    name: Schedule engine tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        working-directory: Packages/ScheduleEngine
+        run: swift test --enable-code-coverage
+
+  # Catches the failure that hurts most: a schedule change that compiles in the
+  # app but not in the widget extension, or the reverse.
+  build:
+    name: Build app and widget
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: make project
+      # Runner images do not always carry the simulator runtime that a pinned
+      # Xcode wants, and a hardcoded destination fails before anything compiles.
+      # Ask the project which destinations it actually has.
+      - name: Pick a destination
+        id: destination
+        run: |
+          xcodebuild -project 78th.xcodeproj -scheme 78th -showdestinations 2>/dev/null > destinations.txt || true
+          cat destinations.txt
+          # Some runner images list a concrete simulator, others only the
+          # "Any iOS Simulator Device" placeholder. `|| true` matters: the step
+          # runs under `bash -e`, so an empty grep would end it before the
+          # fallback below ever ran.
+          ID=$(grep 'platform:iOS Simulator' destinations.txt \
+               | grep -v 'placeholder' \
+               | head -1 \
+               | sed -E 's/.*id:([0-9A-Fa-f-]+).*/\1/' || true)
+          if [ -n "$ID" ]; then
+            DEST="id=$ID"
+          else
+            DEST="generic/platform=iOS Simulator"
+          fi
+          echo "Building for: $DEST"
+          echo "value=$DEST" >> "$GITHUB_OUTPUT"
+      - name: Build
+        run: |
+          xcodebuild \
+            -project 78th.xcodeproj \
+            -scheme 78th \
+            -destination "${{ steps.destination.outputs.value }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+  edge-functions:
+    name: Edge function type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Check
+        run: deno check Supabase/functions/*/index.ts

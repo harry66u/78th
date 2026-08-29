@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "schoolYear": "2026-2027",
+  "publishedAt": "2026-08-25T12:00:00Z",
+  "templates": [
+    {
+      "name": "Regular Day",
+      "slots": [
+        { "label": "Period 1", "start": "08:15", "end": "09:00" },
+        { "label": "Period 2", "start": "09:05", "end": "09:50" }
+      ]
+    }
+  ],
+  "days": [
+    { "date": "2026-09-08", "template": "Regular Day" },
+    { "date": "2026-09-11", "template": "Friday" },
+    { "date": "2026-09-12", "noSchool": true, "note": "Shabbat" },
+    { "date": "2026-09-21", "noSchool": true, "note": "Rosh Hashanah" },
+    { "date": "2026-09-30", "template": "Fast Day", "note": "Tzom Gedaliah" },
+    { "date": "2026-10-15", "template": "Half Day", "note": "Parent conferences" }
+  ]
+}
