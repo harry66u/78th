@@ -141,19 +141,24 @@ public struct ScheduleConfiguration: Hashable, Codable, Sendable {
     /// no entry is a no-school day.
     public var weekdayDefaults: [Int: UUID]
     public var timeZoneIdentifier: String
+    /// Only set to pin the locale, which the tests do so that weekday names are
+    /// deterministic. Nil follows the device.
+    public var localeIdentifier: String?
 
     public init(
         templates: [DayTemplate] = [],
         assignments: [CourseAssignment] = [],
         calendarDays: [CalendarDay] = [],
         weekdayDefaults: [Int: UUID] = [:],
-        timeZoneIdentifier: String = "America/New_York"
+        timeZoneIdentifier: String = "America/New_York",
+        localeIdentifier: String? = nil
     ) {
         self.templates = templates
         self.assignments = assignments
         self.calendarDays = calendarDays
         self.weekdayDefaults = weekdayDefaults
         self.timeZoneIdentifier = timeZoneIdentifier
+        self.localeIdentifier = localeIdentifier
     }
 
     public var isEmpty: Bool { templates.isEmpty }
@@ -162,9 +167,18 @@ public struct ScheduleConfiguration: Hashable, Codable, Sendable {
         TimeZone(identifier: timeZoneIdentifier) ?? TimeZone(identifier: "America/New_York") ?? .gmt
     }
 
+    public var locale: Locale {
+        guard let localeIdentifier else { return .autoupdatingCurrent }
+        return Locale(identifier: localeIdentifier)
+    }
+
+    /// A `Calendar` built without a locale returns *abbreviated* weekday symbols
+    /// ("Sun"), which is how "Sunday" turned into "Sun" on the no-school screen.
+    /// Setting the locale is what makes `weekdaySymbols` the full names.
     public var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
+        calendar.locale = locale
         return calendar
     }
 }

@@ -5,7 +5,7 @@
 // stored, nothing is logged, and the result goes straight back to the device for
 // the student to confirm before anything is saved.
 
-import Anthropic from "npm:@anthropic-ai/sdk@0.72.0";
+import Anthropic from "npm:@anthropic-ai/sdk@0.122.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, errorResponse, json } from "../_shared/cors.ts";
 

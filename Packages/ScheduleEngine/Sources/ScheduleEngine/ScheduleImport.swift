@@ -267,7 +267,8 @@ public enum ScheduleImporter {
             assignments: assignments,
             calendarDays: existing.calendarDays,
             weekdayDefaults: remapWeekdayDefaults(existing: existing, newTemplates: templates),
-            timeZoneIdentifier: existing.timeZoneIdentifier
+            timeZoneIdentifier: existing.timeZoneIdentifier,
+            localeIdentifier: existing.localeIdentifier
         )
 
         return Result(

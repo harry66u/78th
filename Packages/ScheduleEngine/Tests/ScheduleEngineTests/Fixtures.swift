@@ -10,9 +10,12 @@ enum Fixture {
 
     static let timeZone = TimeZone(identifier: "America/New_York")!
 
+    static let localeIdentifier = "en_US"
+
     static var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
+        calendar.locale = Locale(identifier: localeIdentifier)
         return calendar
     }
 
@@ -96,7 +99,8 @@ enum Fixture {
             assignments: assignments,
             calendarDays: [],
             weekdayDefaults: [2: aDay.id, 3: aDay.id, 4: aDay.id, 5: aDay.id, 6: friday.id],
-            timeZoneIdentifier: timeZone.identifier
+            timeZoneIdentifier: timeZone.identifier,
+            localeIdentifier: localeIdentifier
         )
 
         return School(

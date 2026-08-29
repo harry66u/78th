@@ -101,8 +101,17 @@ Deno.serve(async (request: Request) => {
   };
 
   const results = await Promise.allSettled(
-    tokens.map((row) => sendAPNs(row.apns_token, body, authToken, supabase)),
+    tokens.map((row) => sendAPNs(row.apns_token, body, authToken)),
   );
+
+  // A device that uninstalled or rotated its token leaves a row that maps to
+  // nobody. Reaping them here keeps the delete in one place.
+  const stale = results.flatMap((result) =>
+    result.status === "fulfilled" && result.value.stale ? [result.value.token] : []
+  );
+  if (stale.length > 0) {
+    await supabase.from("device_tokens").delete().in("apns_token", stale);
+  }
 
   return json({ sent: results.filter((result) => result.status === "fulfilled").length });
 });
@@ -174,8 +183,7 @@ async function sendAPNs(
   token: string,
   body: unknown,
   authToken: string,
-  supabase: ReturnType<typeof createClient>,
-): Promise<void> {
+): Promise<{ token: string; stale: boolean }> {
   const host = Deno.env.get("APNS_HOST") ?? "https://api.push.apple.com";
   const topic = Deno.env.get("APNS_TOPIC") ?? "com.seventyeighth.app";
 
@@ -191,13 +199,12 @@ async function sendAPNs(
   });
 
   if (response.status === 410 || response.status === 400) {
-    // The device uninstalled or the token rotated. Removing it keeps the table
-    // from accumulating tokens that map to nobody.
-    await supabase.from("device_tokens").delete().eq("apns_token", token);
-    return;
+    return { token, stale: true };
   }
 
   if (!response.ok) {
     throw new Error(`APNs ${response.status}`);
   }
+
+  return { token, stale: false };
 }
