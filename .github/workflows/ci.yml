@@ -39,17 +39,23 @@ jobs:
       - name: Pick a destination
         id: destination
         run: |
-          set -o pipefail
-          xcodebuild -project 78th.xcodeproj -scheme 78th -showdestinations 2>/dev/null | tee destinations.txt
+          xcodebuild -project 78th.xcodeproj -scheme 78th -showdestinations 2>/dev/null > destinations.txt || true
+          cat destinations.txt
+          # Some runner images list a concrete simulator, others only the
+          # "Any iOS Simulator Device" placeholder. `|| true` matters: the step
+          # runs under `bash -e`, so an empty grep would end it before the
+          # fallback below ever ran.
           ID=$(grep 'platform:iOS Simulator' destinations.txt \
                | grep -v 'placeholder' \
                | head -1 \
-               | sed -E 's/.*id:([0-9A-Fa-f-]+).*/\1/')
+               | sed -E 's/.*id:([0-9A-Fa-f-]+).*/\1/' || true)
           if [ -n "$ID" ]; then
-            echo "value=id=$ID" >> "$GITHUB_OUTPUT"
+            DEST="id=$ID"
           else
-            echo "value=generic/platform=iOS Simulator" >> "$GITHUB_OUTPUT"
+            DEST="generic/platform=iOS Simulator"
           fi
+          echo "Building for: $DEST"
+          echo "value=$DEST" >> "$GITHUB_OUTPUT"
       - name: Build
         run: |
           xcodebuild \
