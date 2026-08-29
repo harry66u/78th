@@ -60,6 +60,10 @@ the watch targets compile:
   families and now get the same code, so they cannot drift.
 - **`Shared/Sync/`** — `ScheduleSyncPayload`, the value that crosses the pairing,
   and `ScheduleMirror`, the watch's on-disk copy of it.
+- **`Shared/Social/`** — all of it except `SendPingIntent`, which reads the
+  phone's SwiftData store. The watch compiles the same `SocialBackend` protocol,
+  the same Supabase implementation, and the same ping vocabulary the phone does,
+  so there is one definition of what a ping is and one client that sends it.
 
 **`App/SeventyEighth/`** — two observable stores own all mutation.
 `ScheduleStore` is the only thing that writes the schedule and the only thing
@@ -71,9 +75,10 @@ identity, friends, and the live ping list.
 the engine for entry dates, and precomputes an entry for each. It never makes a
 network call and never wakes the app.
 
-**`Watch/`** — the watch app and its complication extension. The app is
-read-only, which is what makes it small: no editing on the wrist means nothing to
-save, nothing to validate, and no way for two devices to disagree about who won.
+**`Watch/`** — the watch app and its complication extension. The *schedule* half
+is read-only, which is what makes it small: no editing on the wrist means nothing
+to save and no way for two devices to disagree about who won. The *social* half
+is not a mirror at all — see "Pings on the watch" below.
 
 ## Why the widget timeline looks the way it does
 
@@ -120,13 +125,53 @@ reason it is the single place that reloads widget timelines. Every write path in
 that class ends in `reload()`, so a schedule edit that reaches the app but not
 the wrist is not a state the store can get into.
 
-### What is not on the watch
+## Pings on the watch
 
-Pings are phone-only. Sending one from the wrist would be easy; the half that
-makes the feature worth anything — seeing where your friends are — needs the
-identity, friend list, and realtime subscription that live in `SocialStore`, and
-putting that on a watch is its own piece of work rather than a corner of this
-one. The watch does the schedule, which is the half that has to be right.
+The schedule mirrors from the phone. Pings do not: the watch holds its own
+Supabase session and talks to the server itself.
+
+That is a deliberate asymmetry, and the reason is the same reason the watch app
+exists at all. The schedule can mirror because it is a value that changes a few
+times a year; a ping is live, and it is wanted precisely when the phone is in a
+locker. Relaying a ping through the phone would put the feature's availability
+on the one link that is missing at the moment it matters.
+
+**Each device signs in separately.** The watch does not borrow the phone's
+session. Supabase rotates refresh tokens, so two devices driving one session
+spend their time invalidating each other; two Sign in with Apple flows give two
+token chains for the same account, and neither can knock the other out. It also
+means no refresh token ever crosses the pairing.
+
+The consequences are worth stating plainly:
+
+| | Phone | Watch |
+|---|---|---|
+| Sign in with Apple | Yes | Yes, separately |
+| See friends' live pings | Yes | Yes |
+| Send a ping | Yes | Yes |
+| Ping expiry computed from the local schedule | Yes | Yes, from the mirror |
+| Make a profile, add a friend by code, block someone | Yes | No — needs a keyboard |
+| Set "invisible for the day" | Yes | No — honours the phone's switch |
+
+**Invisibility is the one flag that had to cross.** It is a privacy promise, and
+the watch now talks to the server on its own, so a watch that had not heard about
+the switch would keep telling friends where the student is. It rides in
+`ScheduleSyncPayload` — not schedule data, and there anyway, because there is
+already exactly one phone-to-watch channel and a second one would be a second
+thing to keep in sync. `SocialStore.setInvisibleForToday` pushes it immediately
+rather than waiting for the next schedule edit.
+
+There is deliberately **no ping complication**. The iOS ping widget is
+send-only, on the reasoning that a tile on a visible home screen must never leak
+who is where. A watch face is more visible than a home screen, not less, so the
+same reasoning says the watch face shows the schedule and nothing social.
+
+### What is still phone-only
+
+Everything with a text field. Making a profile, adding a friend by code,
+blocking, unblocking, and account deletion all stay on the phone: they are rare,
+they need typing, and a wrist is a bad place to do any of them. The watch says so
+and points at the phone rather than offering a degraded version.
 
 ## What the server knows
 

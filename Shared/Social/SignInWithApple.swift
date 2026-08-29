@@ -1,11 +1,19 @@
 import AuthenticationServices
 import CryptoKit
 import Foundation
+// SecRandomCopyBytes. Imported by name rather than leaning on what
+// AuthenticationServices happens to re-export, since this file is now compiled
+// for watchOS too.
+import Security
 
 /// Sign in with Apple, with the nonce handling the identity provider requires.
 ///
 /// No passwords exist anywhere in this system, which removes a whole category of
 /// support and a whole category of breach.
+///
+/// Shared by the phone and the watch. Each device signs in for itself and gets
+/// its own session for the same account: Supabase rotates refresh tokens, so two
+/// devices sharing one session would spend their time invalidating each other.
 @MainActor
 @Observable
 final class SignInWithAppleCoordinator {

@@ -1,8 +1,9 @@
 # Open questions
 
-The build spec lists four things to resolve before the import milestone. None of
-them block writing code, and all of them block being *correct*. Each one is
-marked in the source where it lives, so fixing it is a single edit.
+The build spec lists four things to resolve before the import milestone, and the
+watch has since added a fifth. None of them block writing code, and all of them
+block being *correct*. Each one is marked in the source where it lives, so fixing
+it is a single edit.
 
 ## 1. The bell times are placeholders
 
@@ -50,3 +51,21 @@ anyone who has not accepted you, schedules never leave the phone — and
 The first TestFlight build should ship with the Pings tab hidden. A schedule app
 that is always right is useful on its own, and it is a much easier thing to get
 permission for.
+
+## 5. The watch's Sign in with Apple grouping is unverified
+
+The watch signs in for itself rather than borrowing the phone's session, which
+means Apple has to issue the *same* user identifier on both devices. That is only
+true when the watch App ID is grouped with the phone's App ID for Sign in with
+Apple, and when Supabase's Apple provider lists
+`com.seventyeighth.app.watchkitapp` among its client IDs. Both steps are in the
+README's backend configuration section.
+
+Neither can be exercised without a paid Apple Developer account, so neither has
+been. **The failure mode is quiet**, which is what makes this worth writing down:
+if the grouping is missing, the watch signs into a second Supabase account
+belonging to the same person, and the student sees a working app with no friends
+in it rather than an error.
+
+**To check, once there is an account:** sign in on both devices and confirm
+`auth.users` has one row, not two.

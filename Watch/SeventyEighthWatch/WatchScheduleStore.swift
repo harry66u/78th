@@ -39,7 +39,7 @@ final class WatchScheduleStore {
         // The receiver writes the mirror from a background queue and announces
         // it; this is what turns a phone edit into a redraw. The store lives for
         // the life of the process, so the observer is never torn down.
-        NotificationCenter.default.addObserver(
+        _ = NotificationCenter.default.addObserver(
             forName: .scheduleMirrorDidChange,
             object: nil,
             queue: .main

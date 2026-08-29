@@ -75,7 +75,8 @@ public final class ScheduleStore {
         WatchSyncService.shared.send(ScheduleSyncPayload(
             configuration: engine.configuration,
             bellTimesConfirmed: settings?.bellTimesConfirmed ?? false,
-            rotationVersion: settings?.rotationVersion ?? 0
+            rotationVersion: settings?.rotationVersion ?? 0,
+            invisibleUntil: AppIdentifiers.invisibleUntil()
         ))
     }
 

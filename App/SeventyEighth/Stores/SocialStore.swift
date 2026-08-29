@@ -38,10 +38,7 @@ public final class SocialStore {
 
     public init(backend: any SocialBackend) {
         self.backend = backend
-        let stored = AppIdentifiers.sharedDefaults?.double(forKey: AppIdentifiers.DefaultsKey.invisibleUntil) ?? 0
-        if stored > Date().timeIntervalSince1970 {
-            invisibleUntil = Date(timeIntervalSince1970: stored)
-        }
+        invisibleUntil = AppIdentifiers.invisibleUntil()
     }
 
     public var isInvisible: Bool {
@@ -229,6 +226,9 @@ public final class SocialStore {
             invisibleUntil = nil
             AppIdentifiers.sharedDefaults?.removeObject(forKey: AppIdentifiers.DefaultsKey.invisibleUntil)
         }
+        // The watch pings the server on its own, so it has to be told at once
+        // rather than at the next schedule edit.
+        WatchSyncService.shared.setInvisible(until: invisibleUntil)
     }
 
     // MARK: - Friends
